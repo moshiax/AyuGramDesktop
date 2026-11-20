@@ -9,6 +9,11 @@
 
 The build is done in **Visual Studio 2022** with **10.0.22000.0** SDK version.
 
+Make sure you have these components installed with Visual Studio:
+
+- MSVC v143 - VS 2022 C++ x64/x86 build tools
+- C++ ATL for latest v143 build tools (x86 & x64)
+
 Choose an empty folder for the future build, for example **D:\\TBuild**. It will be named ***BuildPath*** in the rest of this document. Create two folders there, ***BuildPath*\\ThirdParty** and ***BuildPath*\\Libraries**.
 
 All commands (if not stated otherwise) will be launched from **x64 Native Tools Command Prompt for VS 2022.bat** (should be in **Start Menu > Visual Studio 2022** menu folder). Pay attention not to use any other Command Prompt.
