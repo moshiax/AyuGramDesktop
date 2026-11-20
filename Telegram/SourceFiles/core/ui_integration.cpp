@@ -32,6 +32,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwindow.h"
 
 // AyuGram includes
+#include "ayu/ayu_settings.h"
 #include "ayu/ayu_url_handlers.h"
 
 
@@ -258,7 +259,11 @@ bool UiIntegration::handleUrlClick(
 	auto parsed = UrlForAutoLogin(url);
 	const auto domain = DomainForAutoLogin(parsed);
 	const auto skip = context.value<ClickHandlerContext>().skipBotAutoLogin;
-	if (skip || !BotAutoLogin(url, domain, context)) {
+	const auto disableWebAutoLogin =
+		AyuSettings::getInstance().disableWebAutoLogin;
+	if (disableWebAutoLogin) {
+		File::OpenUrl(url);
+	} else if (skip || !BotAutoLogin(url, domain, context)) {
 		File::OpenUrl(
 			UrlWithAutoLoginToken(url, std::move(parsed), domain, context));
 	}

@@ -38,6 +38,7 @@ public:
 	bool hideSimilarChannels;
 
 	bool disableNotificationsDelay;
+	bool disableWebAutoLogin;
 	bool localPremium;
 	bool copyUsernameAsLink;
 
@@ -98,6 +99,7 @@ public:
 	void set_hideSimilarChannels(bool val);
 
 	void set_disableNotificationsDelay(bool val);
+	void set_disableWebAutoLogin(bool val);
 	void set_localPremium(bool val);
 	void set_copyUsernameAsLink(bool val);
 
@@ -154,6 +156,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
 	collapseSimilarChannels,
 	hideSimilarChannels,
 	disableNotificationsDelay,
+	disableWebAutoLogin,
 	localPremium,
 	copyUsernameAsLink,
 	appIcon,

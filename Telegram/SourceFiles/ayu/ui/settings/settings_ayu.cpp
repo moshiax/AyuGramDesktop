@@ -713,6 +713,25 @@ void SetupQoLToggles(not_null<Ui::VerticalLayout*> container) {
 
 	AddButtonWithIcon(
 		container,
+		tr::ayu_DisableWebAutoLogin(),
+		st::settingsButtonNoIcon
+	)->toggleOn(
+		rpl::single(settings->disableWebAutoLogin)
+	)->toggledValue(
+	) | rpl::filter(
+		[=](bool enabled)
+		{
+			return (enabled != settings->disableWebAutoLogin);
+		}) | start_with_next(
+		[=](bool enabled)
+		{
+			settings->set_disableWebAutoLogin(enabled);
+			AyuSettings::save();
+		},
+		container->lifetime());
+
+	AddButtonWithIcon(
+		container,
 		tr::ayu_LocalPremium(),
 		st::settingsButtonNoIcon
 	)->toggleOn(

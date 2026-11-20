@@ -206,6 +206,7 @@ AyuGramSettings::AyuGramSettings() {
 	hideSimilarChannels = false;
 
 	disableNotificationsDelay = false;
+	disableWebAutoLogin = true;
 	localPremium = false;
 	copyUsernameAsLink = true;
 
@@ -336,6 +337,10 @@ void AyuGramSettings::set_hideSimilarChannels(bool val) {
 
 void AyuGramSettings::set_disableNotificationsDelay(bool val) {
 	disableNotificationsDelay = val;
+}
+
+void AyuGramSettings::set_disableWebAutoLogin(bool val) {
+	disableWebAutoLogin = val;
 }
 
 void AyuGramSettings::set_localPremium(bool val) {

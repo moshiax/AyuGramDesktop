@@ -5205,6 +5205,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_DisableStories" = "Disable Stories";
 "ayu_DisableCustomBackgrounds" = "Disable Custom Backgrounds";
 "ayu_DisableNotificationsDelay" = "Disable Notify Delay";
+"ayu_DisableWebAutoLogin" = "Disable web auto login";
 "ayu_LocalPremium" = "Local Telegram Premium";
 "ayu_CopyUsernameAsLink" = "Copy Username as Link";
 "ayu_CustomizationHeader" = "Customization";
