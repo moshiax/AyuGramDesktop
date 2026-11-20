@@ -446,12 +446,12 @@ win:
     SET CHERE_INVOKING=enabled_from_arguments
     SET MSYS2_PATH_TYPE=inherit
 
-    powershell -Command "iwr -OutFile ./msys64.exe https://repo.msys2.org/distrib/x86_64/msys2-base-x86_64-20221028.sfx.exe"
+    powershell -Command "iwr -OutFile ./msys64.exe https://repo.msys2.org/distrib/x86_64/msys2-base-x86_64-20260927.sfx.exe"
     msys64.exe
     del msys64.exe
 
     bash -c "pacman-key --init; pacman-key --populate; pacman -Syu --noconfirm"
-    pacman -Syu --noconfirm mingw-w64-x86_64-perl mingw-w64-x86_64-nasm mingw-w64-x86_64-yasm mingw-w64-x86_64-ninja
+    pacman -Syu --noconfirm mingw-w64-x86_64-perl mingw-w64-x86_64-nasm yasm mingw-w64-x86_64-ninja
 
     SET PATH=%PATH_BACKUP_%
 """, 'ThirdParty')
@@ -558,6 +558,7 @@ stage('mozjpeg', """
 win:
     cmake . ^
         -A %WIN32X64% ^
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
         -DWITH_JPEG8=ON ^
         -DPNG_SUPPORTED=OFF
     cmake --build . --config Debug
@@ -597,7 +598,8 @@ win32:
 win64:
     perl Configure no-shared no-tests debug-VC-WIN64A
 win:
-    nmake
+    set CL=/FS
+    jom -j%NUMBER_OF_PROCESSORS%
     mkdir out.dbg
     move libcrypto.lib out.dbg
     move libssl.lib out.dbg
@@ -611,7 +613,8 @@ win32:
 win64:
     perl Configure no-shared no-tests VC-WIN64A
 win:
-    nmake
+    set CL=/FS
+    jom -j%NUMBER_OF_PROCESSORS%
     mkdir out
     move libcrypto.lib out
     move libssl.lib out
@@ -635,6 +638,8 @@ mac:
 stage('opus', """
     git clone -b v1.3.1 https://github.com/xiph/opus.git
     cd opus
+    git config --local user.name >nul 2>&1 || git config --local user.name "anon"
+    git config --local user.email >nul 2>&1 || git config --local user.email "anon@github.com"
     git cherry-pick 927de8453c
 win:
     cmake -B out . ^
@@ -826,19 +831,19 @@ win:
         -DCMAKE_INSTALL_PREFIX=%LIBS_DIR%/local ^
         -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>" ^
         -DCMAKE_C_FLAGS="/DLIBDE265_STATIC_BUILD" ^
-        -DCMAKE_CXX_FLAGS="/DLIBDE265_STATIC_BUILD" ^
+        -DCMAKE_CXX_FLAGS="/DLIBDE265_STATIC_BUILD /EHsc /MP" ^
         -DCMAKE_C_FLAGS_DEBUG="/MTd /Zi /Ob0 /Od /RTC1" ^
-        -DCMAKE_CXX_FLAGS_DEBUG="/MTd /Zi /Ob0 /Od /RTC1" ^
+        -DCMAKE_CXX_FLAGS_DEBUG="/MTd /Zi /Ob0 /Od /RTC1 /EHsc /MP" ^
         -DCMAKE_C_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG" ^
-        -DCMAKE_CXX_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG" ^
+        -DCMAKE_CXX_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG /EHsc /MP" ^
         -DENABLE_SDL=OFF ^
         -DBUILD_SHARED_LIBS=OFF ^
         -DENABLE_DECODER=OFF ^
         -DENABLE_ENCODER=OFF
-    cmake --build . --config Debug
+    cmake --build . --config Debug --parallel %NUMBER_OF_PROCESSORS%
     cmake --install . --config Debug
 release:
-    cmake --build . --config Release
+    cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
     cmake --install . --config Release
 mac:
     cmake . \\
@@ -856,9 +861,13 @@ mac:
 stage('libwebp', """
     git clone -b v1.3.2 https://github.com/webmproject/libwebp.git
     cd libwebp
+win32:
+    nmake /f Makefile.vc ARCH=x86 CFG=debug-static OBJDIR=out RTLIBCFG=static all
+    nmake /f Makefile.vc ARCH=x86 CFG=release-static OBJDIR=out RTLIBCFG=static all
+win64:
+    nmake /f Makefile.vc ARCH=x64 CFG=debug-static OBJDIR=out RTLIBCFG=static all
+    nmake /f Makefile.vc ARCH=x64 CFG=release-static OBJDIR=out RTLIBCFG=static all
 win:
-    nmake /f Makefile.vc CFG=debug-static OBJDIR=out RTLIBCFG=static all
-    nmake /f Makefile.vc CFG=release-static OBJDIR=out RTLIBCFG=static all
     copy out\\release-static\\$X8664\\lib\\libwebp.lib out\\release-static\\$X8664\\lib\\webp.lib
     copy out\\release-static\\$X8664\\lib\\libwebpdemux.lib out\\release-static\\$X8664\\lib\\webpdemux.lib
     copy out\\release-static\\$X8664\\lib\\libwebpmux.lib out\\release-static\\$X8664\\lib\\webpmux.lib
@@ -904,9 +913,9 @@ win:
         -DCMAKE_INSTALL_PREFIX=%LIBS_DIR%/local ^
         -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>" ^
         -DCMAKE_C_FLAGS_DEBUG="/MTd /Zi /Ob0 /Od /RTC1" ^
-        -DCMAKE_CXX_FLAGS_DEBUG="/MTd /Zi /Ob0 /Od /RTC1" ^
+        -DCMAKE_CXX_FLAGS_DEBUG="/MTd /Zi /Ob0 /Od /RTC1 /EHsc /MP" ^
         -DCMAKE_C_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG" ^
-        -DCMAKE_CXX_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG" ^
+        -DCMAKE_CXX_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG /EHsc /MP" ^
         -DBUILD_SHARED_LIBS=OFF ^
         -DBUILD_TESTING=OFF ^
         -DENABLE_PLUGIN_LOADING=OFF ^
@@ -916,10 +925,10 @@ win:
         -DWITH_RAV1E=OFF ^
         -DWITH_RAV1E_PLUGIN=OFF ^
         -DWITH_EXAMPLES=OFF
-    cmake --build . --config Debug
+    cmake --build . --config Debug --parallel %NUMBER_OF_PROCESSORS%
     cmake --install . --config Debug
 release:
-    cmake --build . --config Release
+    cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
     cmake --install . --config Release
 mac:
     cmake . \\
@@ -976,16 +985,16 @@ win:
         -DCMAKE_INSTALL_PREFIX=%LIBS_DIR%/local ^
         -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>" ^
         -DCMAKE_C_FLAGS="/DJXL_STATIC_DEFINE /DJXL_THREADS_STATIC_DEFINE" ^
-        -DCMAKE_CXX_FLAGS="/DJXL_STATIC_DEFINE /DJXL_THREADS_STATIC_DEFINE" ^
+        -DCMAKE_CXX_FLAGS="/DJXL_STATIC_DEFINE /DJXL_THREADS_STATIC_DEFINE /EHsc /MP" ^
         -DCMAKE_C_FLAGS_DEBUG="/MTd /Zi /Ob0 /Od /RTC1" ^
-        -DCMAKE_CXX_FLAGS_DEBUG="/MTd /Zi /Ob0 /Od /RTC1" ^
+        -DCMAKE_CXX_FLAGS_DEBUG="/MTd /Zi /Ob0 /Od /RTC1 /EHsc /MP" ^
         -DCMAKE_C_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG" ^
-        -DCMAKE_CXX_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG" ^
+        -DCMAKE_CXX_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG /EHsc /MP" ^
         %cmake_defines%
-    cmake --build . --config Debug
+    cmake --build . --config Debug --parallel %NUMBER_OF_PROCESSORS%
     cmake --install . --config Debug
 release:
-    cmake --build . --config Release
+    cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
     cmake --install . --config Release
 mac:
     cmake . \\
@@ -1252,10 +1261,16 @@ win:
     cmake -B build . ^
         -A %WIN32X64% ^
         -D LIBTYPE:STRING=STATIC ^
-        -D FORCE_STATIC_VCRT=ON
-    cmake --build build --config Debug --parallel
+        -D FORCE_STATIC_VCRT=ON ^
+        -D ALSOFT_RTKIT=OFF ^
+        -D ALSOFT_UTILS=OFF ^
+        -D ALSOFT_EXAMPLES=OFF ^
+        -D ALSOFT_TESTS=OFF ^
+        -D CMAKE_C_FLAGS="/MP" ^
+        -D CMAKE_CXX_FLAGS="/MP"
+    cmake --build build --config Debug --parallel %NUMBER_OF_PROCESSORS%
 release:
-    cmake --build build --config RelWithDebInfo --parallel
+    cmake --build build --config RelWithDebInfo --parallel %NUMBER_OF_PROCESSORS%
 mac:
     git clone -b coreaudio_device_uid https://github.com/telegramdesktop/openal-soft.git
     cd openal-soft
@@ -1440,7 +1455,6 @@ win:
     SET WEBP_DIR=%LIBS_DIR%\\libwebp
     configure -prefix "%LIBS_DIR%\\Qt-5.15.13" ^
         %CONFIGURATIONS% ^
-        -force-debug-info ^
         -opensource ^
         -confirm-license ^
         -static ^
@@ -1482,7 +1496,6 @@ release:
 mac:
     ./configure -prefix "$USED_PREFIX/Qt-5.15.13" \
         $CONFIGURATIONS \
-        -force-debug-info \
         -opensource \
         -confirm-license \
         -static \
@@ -1518,7 +1531,6 @@ release:
 mac:
     ./configure -prefix "$USED_PREFIX/Qt-6.2.7" \
         $CONFIGURATIONS \
-        -force-debug-info \
         -opensource \
         -confirm-license \
         -static \

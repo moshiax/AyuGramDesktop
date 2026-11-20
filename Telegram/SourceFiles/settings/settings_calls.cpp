@@ -405,27 +405,26 @@ void Calls::initCaptureButton(
 }
 
 void Calls::requestPermissionAndStartTestingMicrophone() {
-	using namespace ::Platform;
-	const auto status = GetPermissionStatus(
-		PermissionType::Microphone);
-	if (status == PermissionStatus::Granted) {
+	const auto status = ::Platform::GetPermissionStatus(
+		::Platform::PermissionType::Microphone);
+	if (status == ::Platform::PermissionStatus::Granted) {
 		_testingMicrophone = true;
-	} else if (status == PermissionStatus::CanRequest) {
+	} else if (status == ::Platform::PermissionStatus::CanRequest) {
 		const auto startTestingChecked = crl::guard(this, [=](
-				PermissionStatus status) {
-			if (status == PermissionStatus::Granted) {
+				::Platform::PermissionStatus status) {
+			if (status == ::Platform::PermissionStatus::Granted) {
 				crl::on_main(crl::guard(this, [=] {
 					_testingMicrophone = true;
 				}));
 			}
 		});
-		RequestPermission(
-			PermissionType::Microphone,
+		::Platform::RequestPermission(
+			::Platform::PermissionType::Microphone,
 			startTestingChecked);
 	} else {
 		const auto showSystemSettings = [controller = _controller] {
-			OpenSystemSettingsForPermission(
-				PermissionType::Microphone);
+			::Platform::OpenSystemSettingsForPermission(
+				::Platform::PermissionType::Microphone);
 			controller->hideLayer();
 		};
 		_controller->show(Ui::MakeConfirmBox({
