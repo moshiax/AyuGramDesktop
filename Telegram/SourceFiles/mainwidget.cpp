@@ -83,7 +83,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session_settings.h"
 #include "main/main_app_config.h"
 #include "settings/settings_premium.h"
-#include "support/support_helper.h"
 #include "storage/storage_user_photos.h"
 #include "styles/style_dialogs.h"
 #include "styles/style_chat.h"
@@ -2772,21 +2771,11 @@ void MainWidget::activate() {
 	if (_showAnimation) {
 		return;
 	} else if (const auto paths = cSendPaths(); !paths.isEmpty()) {
-		const auto interpret = u"interpret://"_q;
 		cSetSendPaths(QStringList());
-		if (paths[0].startsWith(interpret)) {
-			const auto error = Support::InterpretSendPath(
-				_controller,
-				paths[0].mid(interpret.size()));
-			if (!error.isEmpty()) {
-				_controller->show(Ui::MakeInformBox(error));
-			}
-		} else {
-			const auto chosen = [=](not_null<Data::Thread*> thread) {
-				return sendPaths(thread, paths);
-			};
-			Window::ShowChooseRecipientBox(_controller, chosen);
-		}
+		const auto chosen = [=](not_null<Data::Thread*> thread) {
+			return sendPaths(thread, paths);
+		};
+		Window::ShowChooseRecipientBox(_controller, chosen);
 	} else if (_mainSection) {
 		_mainSection->setInnerFocus();
 	} else if (_hider) {

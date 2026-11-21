@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtNetwork/QLocalServer>
 #include <QtNetwork/QLocalSocket>
 #include <QtCore/QAbstractNativeEventFilter>
+#include <QtCore/QStringList>
 
 class QLockFile;
 
@@ -68,7 +69,12 @@ protected:
 	bool event(QEvent *e) override;
 
 private:
-	typedef QPair<QLocalSocket*, QByteArray> LocalClient;
+	struct LocalClient {
+		QLocalSocket *socket = nullptr;
+		QByteArray buffer;
+		QStringList pendingSendPaths;
+		bool externalUrlReceived = false;
+	};
 	typedef QList<LocalClient> LocalClients;
 
 	struct PostponedCall {

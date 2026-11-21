@@ -682,9 +682,6 @@ bool Application::eventFilter(QObject *object, QEvent *e) {
 					&& StartUrlRequiresActivate(url)) {
 					_lastActivePrimaryWindow->activate();
 				}
-			} else if (event->url().scheme() == u"interpret"_q) {
-				_filesToOpen.append(event->url().toString());
-				_fileOpenTimer.callOnce(kFileOpenTimeoutMs);
 			}
 		}
 	} break;

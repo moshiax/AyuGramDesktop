@@ -30,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/animations.h"
 
 #include <QtCore/QLockFile>
+#include <QtCore/QUrl>
 #include <QtGui/QSessionManager>
 #include <QtGui/QScreen>
 #include <QtGui/qpa/qplatformscreen.h>
@@ -51,7 +52,7 @@ QString _escapeTo7bit(const QString &str) {
 	for (int i = 0, l = str.size(); i != l; ++i) {
 		QChar ch(str.at(i));
 		ushort uch(ch.unicode());
-		if (uch < 32 || uch > 127 || uch == ushort(uchar('%'))) {
+		if (uch < 32 || uch > 127 || uch == ushort(uchar('%')) || uch == ushort(uchar(';'))) {
 			result.append('%').append(_toHex(uch >> 12)).append(_toHex(uch >> 8)).append(_toHex(uch >> 4)).append(_toHex(uch));
 		} else {
 			result.append(ch);
@@ -417,7 +418,7 @@ void Sandbox::socketDisconnected() {
 void Sandbox::newInstanceConnected() {
 	DEBUG_LOG(("Sandbox Info: new local socket connected"));
 	for (auto client = _localServer.nextPendingConnection(); client; client = _localServer.nextPendingConnection()) {
-		_localClients.push_back(LocalClient(client, QByteArray()));
+		_localClients.push_back(LocalClient{ .socket = client });
 		connect(
 			client,
 			&QLocalSocket::readyRead,
@@ -431,42 +432,72 @@ void Sandbox::newInstanceConnected() {
 
 void Sandbox::readClients() {
 	// This method can be called before Application is constructed.
-	QString startUrl;
-	QStringList toSend;
+	auto startUrls = QList<QUrl>();
+	auto toSend = QStringList();
 	for (LocalClients::iterator i = _localClients.begin(), e = _localClients.end(); i != e; ++i) {
-		i->second.append(i->first->readAll());
-		if (i->second.size()) {
-			QString cmds(QString::fromLatin1(i->second));
-			int32 from = 0, l = cmds.length();
-			for (int32 to = cmds.indexOf(QChar(';'), from); to >= from; to = (from < l) ? cmds.indexOf(QChar(';'), from) : -1) {
-				auto cmd = base::StringViewMid(cmds, from, to - from);
-				if (cmd.startsWith(u"CMD:"_q)) {
-					const auto processId = QApplication::applicationPid();
-					const auto windowId = execExternal(cmds.mid(from + 4, to - from - 4));
-					const auto response = u"RES:%1_%2;"_q.arg(processId).arg(windowId).toLatin1();
-					i->first->write(response.data(), response.size());
-				} else if (cmd.startsWith(u"SEND:"_q)) {
-					if (cSendPaths().isEmpty()) {
-						toSend.append(_escapeFrom7bit(cmds.mid(from + 5, to - from - 5)));
-					}
-				} else if (cmd.startsWith(u"XDG_ACTIVATION_TOKEN:"_q)) {
-					qputenv("XDG_ACTIVATION_TOKEN", _escapeFrom7bit(cmds.mid(from + 21, to - from - 21)).toUtf8());
-				} else if (cmd.startsWith(u"OPEN:"_q)) {
-					startUrl = _escapeFrom7bit(cmds.mid(from + 5, to - from - 5)).mid(0, 8192);
-					const auto activationRequired = StartUrlRequiresActivate(startUrl);
-					const auto processId = QApplication::applicationPid();
-					const auto windowId = activationRequired
-						? execExternal("show")
-						: 0;
-					const auto response = u"RES:%1_%2;"_q.arg(processId).arg(windowId).toLatin1();
-					i->first->write(response.data(), response.size());
-				} else {
-					LOG(("Sandbox Error: unknown command %1 passed in local socket").arg(cmd.toString()));
-				}
-				from = to + 1;
+		i->buffer.append(i->socket->readAll());
+		if (i->buffer.isEmpty()) {
+			continue;
+		}
+		const auto commands = QString::fromLatin1(i->buffer);
+		const auto length = commands.size();
+		auto from = 0;
+		auto records = QStringList();
+		for (auto to = commands.indexOf(QChar(';'), from); to >= from; to = (from < length) ? commands.indexOf(QChar(';'), from) : -1) {
+			records.push_back(commands.mid(from, to - from));
+			from = to + 1;
+		}
+		if (from > 0) {
+			i->buffer = i->buffer.mid(from);
+		}
+		const auto hasOpen = ranges::any_of(records, [](const QString &record) { return record.startsWith(u"OPEN:"_q); });
+		auto urls = QList<QUrl>();
+		for (const auto &record : records) {
+			if (!record.startsWith(u"OPEN:"_q)) {
+				continue;
 			}
-			if (from > 0) {
-				i->second = i->second.mid(from);
+			auto url = QUrl(_escapeFrom7bit(record.mid(5)).mid(0, 8192));
+			if (!url.isLocalFile()) {
+				i->externalUrlReceived = true;
+				i->pendingSendPaths.clear();
+			}
+			startUrls.push_back(url);
+			urls.push_back(std::move(url));
+		}
+		for (const auto &record : records) {
+			if (record.startsWith(u"CMD:"_q)) {
+				if (hasOpen || i->externalUrlReceived) {
+					continue;
+				}
+				const auto command = record.mid(4);
+				if (command == u"show"_q
+					&& !i->pendingSendPaths.isEmpty()) {
+					toSend.append(i->pendingSendPaths);
+					i->pendingSendPaths.clear();
+				}
+				const auto processId = QApplication::applicationPid();
+				const auto windowId = execExternal(command);
+				const auto response = u"RES:%1_%2;"_q.arg(processId).arg(windowId).toLatin1();
+				i->socket->write(response.data(), response.size());
+			} else if (record.startsWith(u"SEND:"_q)) {
+				if (hasOpen || i->externalUrlReceived) {
+					i->pendingSendPaths.clear();
+				} else if (cSendPaths().isEmpty()) {
+					i->pendingSendPaths.push_back(_escapeFrom7bit(record.mid(5)));
+				}
+			} else if (record.startsWith(u"XDG_ACTIVATION_TOKEN:"_q)) {
+				qputenv("XDG_ACTIVATION_TOKEN", _escapeFrom7bit(record.mid(21)).toUtf8());
+			} else if (record.startsWith(u"OPEN:"_q)) {
+				const auto url = urls.takeFirst();
+				const auto activationRequired = StartUrlRequiresActivate(url.toString());
+				const auto processId = QApplication::applicationPid();
+				const auto windowId = activationRequired
+					? execExternal("show")
+					: 0;
+				const auto response = u"RES:%1_%2;"_q.arg(processId).arg(windowId).toLatin1();
+				i->socket->write(response.data(), response.size());
+			} else {
+				LOG(("Sandbox Error: unknown command %1 passed in local socket").arg(record));
 			}
 		}
 	}
@@ -478,8 +509,13 @@ void Sandbox::readClients() {
 	if (_application) {
 		_application->checkSendPaths();
 	}
-	if (!startUrl.isEmpty()) {
-		cSetStartUrl(startUrl);
+	if (!startUrls.isEmpty()) {
+		for (const auto &url : startUrls) {
+			if (!url.isLocalFile()) {
+				cSetStartUrl(url.toString());
+				break;
+			}
+		}
 	}
 	if (_application) {
 		_application->checkStartUrl();
@@ -490,7 +526,7 @@ void Sandbox::removeClients() {
 	DEBUG_LOG(("Sandbox Info: remove clients slot called, clients %1"
 		).arg(_localClients.size()));
 	for (auto i = _localClients.begin(), e = _localClients.end(); i != e;) {
-		if (i->first->state() != QLocalSocket::ConnectedState) {
+		if (i->socket->state() != QLocalSocket::ConnectedState) {
 			DEBUG_LOG(("Sandbox Info: removing client"));
 			i = _localClients.erase(i);
 			e = _localClients.end();
@@ -640,7 +676,7 @@ void Sandbox::closeApplication() {
 
 	_localServer.close();
 	for (const auto &localClient : base::take(_localClients)) {
-		localClient.first->close();
+		localClient.socket->close();
 	}
 	_localClients.clear();
 
