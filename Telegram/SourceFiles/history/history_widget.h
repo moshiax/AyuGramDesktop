@@ -309,6 +309,8 @@ protected:
 	void mouseMoveEvent(QMouseEvent *e) override;
 
 private:
+	bool editAdjacentMessage(bool older);
+
 	using TabbedPanel = ChatHelpers::TabbedPanel;
 	using TabbedSelector = ChatHelpers::TabbedSelector;
 	enum ScrollChangeType {

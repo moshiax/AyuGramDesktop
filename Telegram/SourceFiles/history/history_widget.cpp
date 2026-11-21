@@ -4753,6 +4753,15 @@ bool HistoryWidget::insertBotCommand(const QString &cmd) {
 bool HistoryWidget::eventFilter(QObject *obj, QEvent *e) {
 	if (e->type() == QEvent::KeyPress) {
 		const auto k = static_cast<QKeyEvent*>(e);
+		const auto modifiers = k->modifiers()
+			& ~(Qt::KeypadModifier | Qt::GroupSwitchModifier);
+		if (_editMsgId && modifiers == Qt::ShiftModifier) {
+			if (k->key() == Qt::Key_Up) {
+				return editAdjacentMessage(true);
+			} else if (k->key() == Qt::Key_Down) {
+				return editAdjacentMessage(false);
+			}
+		}
 		if ((k->modifiers() & kCommonModifiers) == Qt::ControlModifier) {
 			if (k->key() == Qt::Key_Up) {
 #ifdef Q_OS_MAC
@@ -4774,6 +4783,42 @@ bool HistoryWidget::eventFilter(QObject *obj, QEvent *e) {
 		}
 	}
 	return TWidget::eventFilter(obj, e);
+}
+
+bool HistoryWidget::editAdjacentMessage(bool older) {
+	if (!_history || !_editMsgId) {
+		return false;
+	}
+	const auto now = base::unixtime::now();
+	const auto current = session().data().message(
+		_history->peer,
+		_editMsgId);
+	if (!current || !current->mainView()) {
+		return false;
+	}
+	auto view = current->mainView();
+	while (view) {
+		view = older
+			? view->previousDisplayedInBlocks()
+			: view->nextDisplayedInBlocks();
+		if (!view) {
+			break;
+		}
+		const auto item = view->data();
+		if (!item->allowsEdit(now)) {
+			continue;
+		}
+		const auto candidate = session().data().groups().findItemToEdit(item);
+		if (!candidate->allowsEdit(now)
+			|| (older ? candidate->id >= _editMsgId
+				: candidate->id <= _editMsgId)) {
+			continue;
+		}
+		controller()->showMessage(candidate);
+		editMessage(candidate, {});
+		return true;
+	}
+	return false;
 }
 
 bool HistoryWidget::floatPlayerHandleWheelEvent(QEvent *e) {
