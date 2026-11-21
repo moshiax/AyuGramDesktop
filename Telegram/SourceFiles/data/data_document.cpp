@@ -433,13 +433,19 @@ void DocumentData::setattributes(
 		});
 	}
 
-	// Any "video/webm" file is treated as a video-sticker.
 	if (hasMimeType(u"video/webm"_q)) {
 		if (type == FileDocument) {
-			type = StickerDocument;
-			_additional = std::make_unique<StickerData>();
-		}
-		if (type == StickerDocument) {
+			type = VideoDocument;
+			if (_duration < 0) {
+				_duration = 0;
+			}
+			if (dimensions.isEmpty()) {
+				dimensions = QSize(
+					_thumbnail.location.width(),
+					_thumbnail.location.height());
+			}
+			setMaybeSupportsStreaming(true);
+		} else if (type == StickerDocument) {
 			sticker()->type = StickerType::Webm;
 		}
 	}
