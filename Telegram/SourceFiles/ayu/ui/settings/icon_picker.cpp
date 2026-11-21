@@ -8,12 +8,14 @@
 #include "tray.h"
 #include "ayu/ayu_settings.h"
 #include "core/application.h"
+#include "core/file_utilities.h"
 #include "styles/style_layers.h"
 
 #include "ayu/ui/ayu_logo.h"
 #include "main/main_domain.h"
 #include "styles/style_ayu_styles.h"
 #include "ui/painter.h"
+#include "ui/toast/toast.h"
 #include "window/main_window.h"
 
 #ifdef Q_OS_WIN
@@ -32,6 +34,7 @@ const QVector<QString> icons{
 };
 
 const auto rows = static_cast<int>(icons.size()) / 4 + std::min(1, static_cast<int>(icons.size()) % 4);
+constexpr auto kLoadButtonHeight = 40;
 
 void drawIcon(QPainter &p, const QImage &icon, int xOffset, int yOffset, float strokeOpacity) {
 	xOffset += st::cpPadding;
@@ -63,9 +66,30 @@ void applyIcon() {
 	Core::App().domain().notifyUnreadBadgeChanged();
 }
 
+void chooseCustomIcon() {
+	const auto filters = u"Icon files (*.ico *.png)"_q;
+	FileDialog::GetOpenPath(
+		Core::App().getFileDialogParent(),
+		"Choose custom app icon",
+		filters,
+		[](const FileDialog::OpenResult &result) {
+			if (result.paths.isEmpty()) {
+				return;
+			}
+			if (!AyuAssets::setCustomAppIcon(result.paths.front())) {
+				Ui::Toast::Show("Could not load this icon file.");
+				return;
+			}
+			auto settings = &AyuSettings::getInstance();
+			settings->set_appIcon(AyuAssets::CUSTOM_ICON);
+			AyuSettings::save();
+			applyIcon();
+		});
+}
+
 IconPicker::IconPicker(QWidget *parent)
 	: RpWidget(parent) {
-	setMinimumSize(st::boxWidth, (st::cpIconSize + st::cpPadding) * rows);
+	setMinimumSize(st::boxWidth, (st::cpIconSize + st::cpSpacingY) * rows + kLoadButtonHeight);
 }
 
 void IconPicker::paintEvent(QPaintEvent *e) {
@@ -97,9 +121,18 @@ void IconPicker::paintEvent(QPaintEvent *e) {
 					 opacity);
 		}
 	}
+	p.setPen(st::windowFg->c);
+	p.drawText(
+		QRect(0, (st::cpIconSize + st::cpSpacingY) * rows, width(), kLoadButtonHeight),
+		Qt::AlignCenter,
+		"Load custom icon…");
 }
 
 void IconPicker::mousePressEvent(QMouseEvent *e) {
+	if (e->pos().y() >= (st::cpIconSize + st::cpSpacingY) * rows) {
+		chooseCustomIcon();
+		return;
+	}
 	auto settings = &AyuSettings::getInstance();
 	auto changed = false;
 

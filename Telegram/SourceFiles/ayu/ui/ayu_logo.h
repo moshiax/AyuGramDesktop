@@ -10,6 +10,8 @@
 
 namespace AyuAssets {
 
+inline const auto CUSTOM_ICON = QStringLiteral("custom");
+
 ICON(DEFAULT, "default");
 ICON(ALT, "alt");
 ICON(DISCORD, "discord");
@@ -20,6 +22,8 @@ ICON(BARD, "bard");
 ICON(YAPLUS, "yaplus");
 
 void loadAppIco();
+[[nodiscard]] QString customAppIconPath();
+[[nodiscard]] bool setCustomAppIcon(const QString &path);
 
 QImage loadPreview(QString name);
 

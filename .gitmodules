@@ -40,9 +40,12 @@
 [submodule "Telegram/lib_storage"]
 	path = Telegram/lib_storage
 	url = https://github.com/desktop-app/lib_storage.git
-[submodule "cmake"]
-	path = cmake
-	url = https://github.com/desktop-app/cmake_helpers.git
+[submodule "cmake/external/Implib.so"]
+	path = cmake/external/Implib.so
+	url = https://github.com/yugr/Implib.so.git
+[submodule "cmake/external/glib/cppgir"]
+	path = cmake/external/glib/cppgir
+	url = https://gitlab.com/mnauw/cppgir.git
 [submodule "Telegram/ThirdParty/expected"]
 	path = Telegram/ThirdParty/expected
 	url = https://github.com/TartanLlama/expected
